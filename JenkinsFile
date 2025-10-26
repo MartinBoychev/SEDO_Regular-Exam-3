@@ -1,32 +1,66 @@
 pipeline {
-  agent any
+    agent any
 
-  environment {
-    DOTNET_CLI_TELEMETRY_OPTOUT = "1"
-  }
-
-  stages {
-    stage('Checkout') {
-      steps { checkout scm }
+    environment {
+        // If you have a specific dotnet tool path or MSBuild tool, you could set it here
+        // e.g., DOTNET_HOME = '/usr/share/dotnet'
     }
 
-    stage('Restore') {
-      steps { sh 'dotnet restore' }
+    triggers {
+        // Option 1: Poll SCM (e.g., every 5 minutes)
+        // pollSCM('H/5 * * * *')
+        // Option 2: Use GitHub webhook (preferred) so Jenkins is triggered on push
     }
 
-    stage('Build') {
-      steps { sh 'dotnet build --configuration Release --no-restore' }
+    stages {
+        stage('Checkout') {
+            steps {
+                // The SCM checkout is handled automatically when using "Pipeline script from SCM"
+                echo "Checking out code from main branch"
+            }
+        }
+
+        stage('Restore') {
+            steps {
+                // .NET restore for dependencies
+                sh 'dotnet restore Horizons.sln'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                // Build the solution in Release configuration
+                sh 'dotnet build Horizons.sln --configuration Release --no-restore'
+            }
+        }
+
+        stage('Test – Unit Tests') {
+            steps {
+                // Run unit tests
+                sh 'dotnet test Horizons.Tests.Unit/Horizons.Tests.Unit.csproj --configuration Release --no-build --verbosity normal'
+            }
+        }
+
+        stage('Test – Integration Tests') {
+            steps {
+                // Run integration tests
+                sh 'dotnet test Horizons.Tests.Integration/Horizons.Tests.Integration.csproj --configuration Release --no-build --verbosity normal'
+            }
+        }
     }
 
-    stage('Test') {
-      steps { sh 'dotnet test --configuration Release --no-build --logger "trx;LogFileName=tests.trx"' }
-    }
-  }
+    post {
+        always {
+            // Archive test results, etc.
+            junit '**/TestResults/*.xml'
+        }
 
-  post {
-    always {
-      archiveArtifacts artifacts: '**/TestResults/*.trx', allowEmptyArchive: true
-      junit allowEmptyResults: true, testResults: '**/TestResults/*.trx'
+        success {
+            echo "Build and tests succeeded!"
+        }
+
+        failure {
+            echo "Build or tests failed."
+        }
     }
-  }
 }

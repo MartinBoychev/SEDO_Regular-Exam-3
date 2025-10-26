@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     triggers {
-         pollSCM('H/5 * * * *')
+        pollSCM('H/5 * * * *')
     }
 
     stages {
@@ -12,8 +12,6 @@ pipeline {
             }
         }
 
-        }
-
         stage('Test Integration Tests') {
             steps {
                 // Run integration tests
@@ -21,4 +19,4 @@ pipeline {
             }
         }
     }
-
+}

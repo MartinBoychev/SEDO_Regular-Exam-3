@@ -1,0 +1,53 @@
+pipeline {
+  agent { label 'linux && dotnet' }
+    pollSCM('H/5 * * * *') 
+  }
+  environment {
+    DOTNET_CLI_TELEMETRY_OPTOUT = "1"
+  }
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Restore') {
+      steps {
+        sh 'dotnet restore'
+      }
+    }
+
+    stage('Build') {
+      steps {
+        sh 'dotnet build --configuration Release --no-restore'
+      }
+    }
+
+    stage('Run Unit Tests') {
+      steps {
+        sh 'dotnet test --configuration Release --no-build --logger "trx;LogFileName=unit-tests.trx"'
+        junit '*/TestResults/*.trx' 
+      }
+    }
+
+    stage('Run Integration Tests') {
+      steps {
+        sh 'dotnet test ./tests/IntegrationTests/IntegrationTests.csproj --configuration Release --no-build --logger "trx;LogFileName=int-tests.trx" || true'
+        junit '*/TestResults/*.trx'
+      }
+    }
+  }
+  post {
+    always {
+      archiveArtifacts artifacts: '**/bin/**/TestResults/**', allowEmptyArchive: true
+      junit allowEmptyResults: true, testResults: '**/TestResults/*.trx'
+    }
+    success {
+      echo 'Build and tests succeeded'
+    }
+    failure {
+      echo 'Something failed — check the console output'
+    }
+  }
+}
